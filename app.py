@@ -5,6 +5,7 @@ import re
 from openai import OpenAI
 import io
 from PIL import Image
+import pandas as pd
 from supplier_verifier import SupplierVerifier
 from phase2_tools import Phase2Tools
 
@@ -77,12 +78,45 @@ elif analysis_method == "Manual Input":
         }
         st.success("Data saved!")
 
+# Show tabs if we have analysis data
 if st.session_state.analysis:
     tab1, tab2, tab3, tab4 = st.tabs(["Product", "Verify", "Email", "Phase 2"])
     
     with tab1:
         st.subheader("Product Information")
         st.json(st.session_state.analysis)
+        
+        # Export buttons
+        col1, col2 = st.columns(2)
+        with col1:
+            # CSV Download
+            csv_data = {
+                "product_name": [st.session_state.analysis.get("product_name", "")],
+                "material": [st.session_state.analysis.get("material", "")],
+                "key_features": [", ".join(st.session_state.analysis.get("key_features", []))],
+                "search_terms": [", ".join(st.session_state.analysis.get("search_terms", []))]
+            }
+            df = pd.DataFrame(csv_data)
+            csv_buffer = df.to_csv(index=False)
+            
+            st.download_button(
+                label="📥 Download as CSV",
+                data=csv_buffer,
+                file_name="product_analysis.csv",
+                mime="text/csv",
+                key="csv_download"
+            )
+        
+        with col2:
+            # JSON Download
+            json_str = json.dumps(st.session_state.analysis, indent=2)
+            st.download_button(
+                label="📥 Download as JSON",
+                data=json_str,
+                file_name="product_analysis.json",
+                mime="application/json",
+                key="json_download"
+            )
         
     with tab2:
         st.subheader("Supplier Verification")
@@ -108,10 +142,27 @@ if st.session_state.analysis:
                 st.error(msg + " (High Risk)")
             st.json(report)
             
+            # Export verification report
+            st.download_button(
+                label="📥 Download Verification Report (JSON)",
+                data=json.dumps(report, indent=2),
+                file_name="supplier_verification.json",
+                mime="application/json",
+                key="verify_download"
+            )
+            
     with tab3:
         p_name = st.session_state.analysis["product_name"]
         email_txt = "Subject: RFQ - " + p_name + "\n\nProduct: " + p_name + "\n\nPlease send quote."
         st.text_area("Email", email_txt, height=150)
+        
+        st.download_button(
+            label="📥 Download Email as TXT",
+            data=email_txt,
+            file_name="supplier_email.txt",
+            mime="text/plain",
+            key="email_download"
+        )
         
     with tab4:
         st.write("Phase 2 Tools")
@@ -120,5 +171,13 @@ if st.session_state.analysis:
             tools = Phase2Tools()
             res = tools.fetch_us_import_records(imp_n)
             st.json(res)
+            
+            st.download_button(
+                label="📥 Download Import Data (JSON)",
+                data=json.dumps(res, indent=2),
+                file_name="import_records.json",
+                mime="application/json",
+                key="import_download"
+            )
 else:
     st.info("Upload an image or enter product details to start")
